@@ -67,8 +67,23 @@ only configuration — see
 [references/release-sources.md](references/release-sources.md).
 
 When a plugin publishes somewhere not yet listed, ask the user for the
-marketplace URL and add it to that file. It is committed, so the repo carries
-its own list of destinations.
+marketplace URL and add it. Creating the file, write the body too — it is
+committed, so it is read by people who have never run this skill:
+
+```markdown
+---
+marketplaces:
+  - name: <marketplace-name>
+    url: <https://host/owner/repo.git>
+---
+
+# Where this repo publishes
+
+Read by the iron-plugin-dev plugin's deploy-plugin skill. Each entry is a
+marketplace that lists a plugin from this repo; releasing moves the ref in
+every one of them. Committed on purpose — the destination list belongs to the
+project, not to a machine.
+```
 
 Resolve anything it flags before going on:
 

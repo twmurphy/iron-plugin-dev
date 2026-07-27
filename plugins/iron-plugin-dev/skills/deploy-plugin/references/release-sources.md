@@ -80,7 +80,20 @@ marketplaces:
   - name: iron-plugins
     url: https://github.com/twmurphy/iron-plugins.git
 ---
+
+# Where this repo publishes
+
+Read by the iron-plugin-dev plugin's deploy-plugin skill. Each entry is a
+marketplace that lists a plugin from this repo; releasing moves the ref in
+every one of them. Committed on purpose — the destination list belongs to the
+project, not to a machine.
 ```
+
+The name follows the settings convention: named for the plugin that reads it,
+so two plugins never collide, and *without* `.local`, which Claude Code uses to
+mark a file as personal and gitignored. The body carries what the filename
+cannot — these files are frontmatter plus prose, so the file explains itself to
+whoever opens it next.
 
 A URL is the whole configuration. Reading a remote marketplace's ref, or moving
 it, works from a clone this plugin makes and keeps under
