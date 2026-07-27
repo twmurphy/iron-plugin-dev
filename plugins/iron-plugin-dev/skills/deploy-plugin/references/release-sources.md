@@ -66,26 +66,46 @@ its own `ref`. That is what separates channels: a private marketplace can carry
 a pre-release while a public one stays on the last stable tag, from one repo and
 one set of tags.
 
-Targets live in `.claude/iron-plugin-dev.local.md`, gitignored and per-machine
-because where you keep clones is your business:
+Targets come from two files, split by what is durable:
+
+**`.claude/<plugin>.md` — committed.** Which marketplaces publish this repo.
+This is a fact about the project, so it belongs in the repo:
 
 ```markdown
 ---
 marketplaces:
-  - name: iron-plugin-dev
-    path: .
   - name: iron-plugins
-    path: S:/Vibe Coding/skills
+    repo: twmurphy/iron-plugins
 ---
 ```
 
-`path` is the repo holding `.claude-plugin/marketplace.json`; `.` is this repo.
-With no settings file the repo's own manifest is the only target, so a
-single-marketplace repo needs no configuration.
+**`.claude/<plugin>.local.md` — gitignored.** Where your clones of them live.
+That is a fact about your machine:
+
+```markdown
+---
+marketplaces:
+  - name: iron-plugins
+    path: S:/Vibe Coding/iron-plugins
+---
+```
+
+Entries merge by name, so the committed file can name a marketplace the local
+file only locates. `path` points at the repo holding
+`.claude-plugin/marketplace.json`; `.` is this repo. With neither file, this
+repo's own manifest is the only target, so a single-marketplace repo needs no
+configuration at all.
+
+The split exists so a repo that publishes through a marketplace it does not
+contain can still say so. Without it, a fresh clone has no targets and the
+scaffold check reports a missing marketplace — a finding about the machine
+dressed up as a finding about the repo. With `repo:` committed, an uncloned
+marketplace reports *"remote, not checked locally"*, and only a release needs a
+`path`, since moving a ref means editing a file.
 
 This also removes the assumption that a plugin repo carries a marketplace at
-all. Name a marketplace living in another repo and the plugin repo needs no
-manifest of its own.
+all: name one living in another repo and the plugin repo needs no manifest of
+its own.
 
 **One plugin name loads once.** Claude Code deduplicates by plugin *name*, not
 by `plugin@marketplace`, so installing the same plugin from two marketplaces

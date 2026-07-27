@@ -36,25 +36,35 @@ fi
 # Usually just the one at the repo root. A settings file can name others, which
 # is how a plugin reaches a private channel and a public one at the same time.
 targets="$(marketplace_targets "$root")"
+remote_only=0
 if [ -z "$targets" ]; then
   fail ".claude-plugin/marketplace.json" "missing, and no marketplaces configured"
 else
-  while IFS="$(printf '\t')" read -r mkt path; do
+  while IFS="$(printf '\037')" read -r mkt path repo; do
     [ -n "${mkt:-}" ] || continue
-    if [ ! -f "$path" ]; then
+    if [ -n "${path:-}" ] && [ -f "$path" ]; then
+      if [ -z "$(json_name "$path")" ]; then
+        fail "marketplace $mkt" "unreadable or missing a name field"
+      else
+        pass "marketplace $mkt" "ok"
+      fi
+    elif [ -n "${path:-}" ]; then
       fail "marketplace $mkt" "manifest not found at $path"
-    elif [ -z "$(json_name "$path")" ]; then
-      fail "marketplace $mkt" "unreadable or missing a name field"
+    elif [ -n "${repo:-}" ]; then
+      # Named but not cloned here. The repo says where it publishes; checking
+      # the join would need that clone, so say so rather than invent a finding.
+      pass "marketplace $mkt" "$repo — remote, not checked locally"
+      remote_only=1
     else
-      pass "marketplace $mkt" "ok"
+      fail "marketplace $mkt" "neither path nor repo configured"
     fi
   done <<< "$targets"
 fi
 
 # Plugin names each readable marketplace lists, as "marketplace<TAB>plugin".
 listed() {
-  while IFS="$(printf '\t')" read -r mkt path; do
-    [ -n "${mkt:-}" ] && [ -f "$path" ] || continue
+  while IFS="$(printf '\037')" read -r mkt path repo; do
+    [ -n "${mkt:-}" ] && [ -n "${path:-}" ] && [ -f "$path" ] || continue
     node -e '
       let raw = "";
       process.stdin.on("data", chunk => raw += chunk);
@@ -97,6 +107,8 @@ for dir in "$root"/plugins/*/; do
   in="$(printf '%s\n' "$entries" | awk -F'\t' -v n="$name" '$2 == n { printf "%s ", $1 }')"
   if [ -n "$in" ]; then
     pass "$name" "plugin.json ok · listed in ${in% }"
+  elif [ "$remote_only" = 1 ]; then
+    pass "$name" "plugin.json ok · join not checked, marketplaces are remote"
   else
     fail "$name" "plugin.json ok · NOT LISTED in any marketplace"
   fi

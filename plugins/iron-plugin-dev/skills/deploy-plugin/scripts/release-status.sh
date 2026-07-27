@@ -21,7 +21,7 @@ targets="$(marketplace_targets "$root")"
 
 # Limit to the marketplaces named on the command line, when any were.
 if [ "$#" -gt 0 ]; then
-  targets="$(printf '%s\n' "$targets" | awk -F'\t' -v w="$(printf '%s\n' "$@")" '
+  targets="$(printf '%s\n' "$targets" | awk -F'\037' -v w="$(printf '%s\n' "$@")" '
     BEGIN { n = split(w, a, "\n"); for (i = 1; i <= n; i++) keep[a[i]] = 1 }
     keep[$1]')"
   [ -n "$targets" ] || die "no marketplace target matched: $*"
@@ -76,9 +76,15 @@ for dir in "$root"/plugins/*/; do
 
   # One line per marketplace. The ref each names decides what its own users
   # receive, independently of every other marketplace listing this plugin.
-  while IFS="$(printf '\t')" read -r mkt path; do
+  while IFS="$(printf '\037')" read -r mkt path repo; do
     [ -n "${mkt:-}" ] || continue
 
+    # Moving a ref means editing a file, so a marketplace with no local clone
+    # can be named but not released to.
+    if [ -z "${path:-}" ]; then
+      printf '  %-22s %s\n' "$mkt" "${repo:-remote} — no local checkout, add a path to release to it"
+      continue
+    fi
     if [ ! -f "$path" ]; then
       printf '  %-22s %s\n' "$mkt" "manifest not found at $path"
       continue

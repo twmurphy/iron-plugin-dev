@@ -46,34 +46,35 @@ json_field() {  # json_field FILE FIELD
 
 json_name() { json_field "$1" name; }
 
-# The marketplaces a release fans out to, as "name<TAB>manifest-path" lines.
+# The marketplaces a release fans out to, as "name<TAB>manifest-path<TAB>repo"
+# lines. Either of the last two may be empty.
 #
 # One plugin can be listed by several marketplaces — a private one for testing
 # and a public one for release, say — and each names its own ref, so each is a
-# separate switch to throw. Targets come from .claude/iron-plugin-dev.local.md:
+# separate switch to throw. Two files describe them, split by what is durable:
+#
+#   .claude/iron-plugin-dev.md         committed — which marketplaces publish
+#                                      this repo, by `repo:` (owner/name)
+#   .claude/iron-plugin-dev.local.md   gitignored — where your clones of them
+#                                      live, by `path:`
 #
 #   ---
 #   marketplaces:
-#     - name: iron-plugin-dev
-#       path: .
 #     - name: iron-plugins
-#       path: S:/Vibe Coding/skills
+#       repo: twmurphy/iron-plugins
+#       path: S:/Vibe Coding/iron-plugins
 #   ---
 #
+# The split matters because a repo that publishes through a marketplace it does
+# not contain still needs to say so — a fresh clone with no local paths should
+# report "not checked locally", never "no marketplace". Entries merge by name,
+# so the committed file can name a marketplace the local one only locates.
+#
 # `path` is the repo holding .claude-plugin/marketplace.json; "." is this repo.
-# With no settings file the repo's own manifest is the only target, which is the
-# single-marketplace case and needs no configuration.
-marketplace_targets() {  # marketplace_targets ROOT
-  local root="$1" settings="$1/.claude/iron-plugin-dev.local.md"
-
-  if [ ! -f "$settings" ]; then
-    local own="$root/.claude-plugin/marketplace.json"
-    [ -f "$own" ] || return 0
-    printf '%s\t%s\n' "$(json_name "$own")" "$own"
-    return 0
-  fi
-
-  awk -v root="$root" '
+# With neither file, this repo's own manifest is the only target — the
+# single-marketplace case, needing no configuration.
+_parse_targets() {  # _parse_targets FILE ROOT
+  awk -v root="$2" '
     function trim(s) {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
       gsub(/^["'"'"']|["'"'"']$/, "", s)
@@ -81,9 +82,12 @@ marketplace_targets() {  # marketplace_targets ROOT
     }
     function emit() {
       if (name == "") return
-      p = (path == "" || path == ".") ? root : path
-      print name "\t" p "/.claude-plugin/marketplace.json"
-      name = ""; path = ""
+      p = (path == ".") ? root : path
+      # Unit separator, not tab: a field here is often empty, and tab is an IFS
+      # whitespace character, so bash read would collapse the run and shift
+      # every later field left.
+      print name "\037" (p == "" ? "" : p "/.claude-plugin/marketplace.json") "\037" repo
+      name = ""; path = ""; repo = ""
     }
     /^---[[:space:]]*$/ { fm = !fm; next }
     !fm { next }
@@ -92,9 +96,41 @@ marketplace_targets() {  # marketplace_targets ROOT
       emit(); sub(/^[[:space:]]*-[[:space:]]*name:/, ""); name = trim($0); next
     }
     inlist && /^[[:space:]]+path:/ { sub(/^[[:space:]]*path:/, ""); path = trim($0); next }
+    inlist && /^[[:space:]]+repo:/ { sub(/^[[:space:]]*repo:/, ""); repo = trim($0); next }
     inlist && /^[^[:space:]#]/ { emit(); inlist = 0 }
     END { emit() }
-  ' "$settings"
+  ' "$1"
+}
+
+marketplace_targets() {  # marketplace_targets ROOT
+  local root="$1" rows=""
+  local shared="$root/.claude/iron-plugin-dev.md"
+  local local_file="$root/.claude/iron-plugin-dev.local.md"
+
+  # $'\n' rather than "$(printf '\n')" — command substitution strips trailing
+  # newlines, which would run the two files' rows together.
+  [ -f "$shared" ]     && rows+="$(_parse_targets "$shared" "$root")"$'\n'
+  [ -f "$local_file" ] && rows+="$(_parse_targets "$local_file" "$root")"$'\n'
+
+  if [ -z "${rows//[[:space:]]/}" ]; then
+    local own="$root/.claude-plugin/marketplace.json"
+    [ -f "$own" ] || return 0
+    printf '%s\037%s\037\n' "$(json_name "$own")" "$own"
+    return 0
+  fi
+
+  # Merge by name, first-seen order. A later file fills in fields the earlier
+  # one left blank, which is how the local file supplies paths for marketplaces
+  # the committed file names.
+  printf '%s\n' "$rows" | awk -F'\037' '
+    $1 == "" { next }
+    {
+      if (!($1 in seen)) { seen[$1] = 1; order[++n] = $1 }
+      if ($2 != "") path[$1] = $2
+      if ($3 != "") repo[$1] = $3
+    }
+    END { for (i = 1; i <= n; i++) { k = order[i]; print k "\037" path[k] "\037" repo[k] } }
+  '
 }
 
 # The name a marketplace entry gives a plugin's ref, empty when unlisted.
