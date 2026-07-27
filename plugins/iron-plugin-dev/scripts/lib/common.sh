@@ -3,7 +3,7 @@
 # Holds the two things both scripts need and neither should restate: where the
 # repo is, and how to make/inspect/remove a link on this platform.
 
-die()  { echo "local-plugin-dev: $*" >&2; exit 1; }
+die()  { echo "iron-plugin-dev: $*" >&2; exit 1; }
 note() { echo "  $*"; }
 
 # Locate the repo by walking up from the working directory. These scripts ship

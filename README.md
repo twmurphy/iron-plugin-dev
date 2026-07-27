@@ -9,7 +9,7 @@ plugin-utils/                            # the marketplace repo (name: iron-plug
 ├── .claude-plugin/
 │   └── marketplace.json                 # lists every plugin in plugins/
 └── plugins/
-    └── local-plugin-dev/                    # a plugin
+    └── iron-plugin-dev/                     # a plugin
         ├── .claude-plugin/
         │   └── plugin.json
         ├── scripts/lib/common.sh            # shared: repo discovery, JSON, links
@@ -30,13 +30,13 @@ plugin-utils/                            # the marketplace repo (name: iron-plug
 ```
 
 The repo and the plugin are two levels, and a one-plugin repo still keeps both —
-see [scaffold.md](plugins/local-plugin-dev/skills/local-plugin-setup/references/scaffold.md).
+see [scaffold.md](plugins/iron-plugin-dev/skills/local-plugin-setup/references/scaffold.md).
 
 ## Plugins
 
 | Name               | Skills                            | Purpose                                                    |
 | ------------------ | --------------------------------- | ---------------------------------------------------------- |
-| `local-plugin-dev` | `local-plugin-setup`, `deploy-plugin` | Verify a plugin repo's scaffold, clear user-scope installs that shadow it, link each plugin into `.claude/skills/` as a live view — then release under control when it is ready |
+| `iron-plugin-dev` | `local-plugin-setup`, `deploy-plugin` | Verify a plugin repo's scaffold, clear user-scope installs that shadow it, link each plugin into `.claude/skills/` as a live view — then release under control when it is ready |
 
 ## Install locally
 
@@ -45,7 +45,7 @@ claude plugin marketplace add "S:/Vibe Coding/plugin-utils"
 ```
 
 ```bash
-claude plugin install local-plugin-dev@iron-plugin-dev --scope project
+claude plugin install iron-plugin-dev@iron-plugin-dev --scope project
 ```
 
 Project scope, not user scope: a user-scope install is a cached snapshot that
@@ -59,7 +59,7 @@ claude plugin validate .
 ```
 
 ```bash
-bash plugins/local-plugin-dev/skills/local-plugin-setup/scripts/verify-repo.sh
+bash plugins/iron-plugin-dev/skills/local-plugin-setup/scripts/verify-repo.sh
 ```
 
 `claude plugin validate` reads each manifest in isolation; `verify-repo.sh`

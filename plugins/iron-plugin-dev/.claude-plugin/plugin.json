@@ -1,5 +1,5 @@
 {
-  "name": "local-plugin-dev",
+  "name": "iron-plugin-dev",
   "description": "Develop and release Claude Code plugins: verify a repo's scaffold, clear user-scope installs that shadow it, link each plugin into .claude/skills/ as a live view, and cut controlled releases by version, tag, and marketplace ref.",
   "version": "0.1.0",
   "author": {
