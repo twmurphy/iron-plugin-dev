@@ -59,6 +59,41 @@ claude plugin tag ./plugins/<name> --dry-run
 - prints the exact `git tag` and `git push` commands it runs
 - pushes the tag with `--push`, to `--remote` (default `origin`)
 
+## Publishing through more than one marketplace
+
+Nothing stops several marketplaces from listing the same plugin, and each names
+its own `ref`. That is what separates channels: a private marketplace can carry
+a pre-release while a public one stays on the last stable tag, from one repo and
+one set of tags.
+
+Targets live in `.claude/iron-plugin-dev.local.md`, gitignored and per-machine
+because where you keep clones is your business:
+
+```markdown
+---
+marketplaces:
+  - name: iron-plugin-dev
+    path: .
+  - name: iron-plugins
+    path: S:/Vibe Coding/skills
+---
+```
+
+`path` is the repo holding `.claude-plugin/marketplace.json`; `.` is this repo.
+With no settings file the repo's own manifest is the only target, so a
+single-marketplace repo needs no configuration.
+
+This also removes the assumption that a plugin repo carries a marketplace at
+all. Name a marketplace living in another repo and the plugin repo needs no
+manifest of its own.
+
+**One plugin name loads once.** Claude Code deduplicates by plugin *name*, not
+by `plugin@marketplace`, so installing the same plugin from two marketplaces
+leaves one reported as `Not loaded — same plugin name … shadowed`. Several
+marketplaces are several ways to *distribute* a plugin, not a way to run two
+copies. During a migration between marketplaces, consumers should move from one
+to the other rather than add the second alongside the first.
+
 ## Optional `version` on a marketplace entry
 
 An entry may carry `version` alongside `name` and `source`. It is optional and

@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# setup-local/verify-repo: confirm the repo is a plugin repo in good order —
-# a marketplace manifest, a plugins/ directory, and every plugin joined to the
-# manifest in both directions. Read-only; changes nothing.
+# setup-local/verify-repo: confirm the repo is a plugin repo in good order — a
+# plugins/ directory, at least one marketplace naming what is in it, and every
+# plugin joined to a marketplace. Read-only; changes nothing.
 #
 # `claude plugin validate` checks each manifest in isolation and never compares
-# them, so a plugin missing from marketplace.json passes validation and installs
-# nothing. That join is what this checks.
+# them, so a plugin no marketplace lists passes validation and installs nothing.
+# That join is what this checks, across every configured marketplace.
 set -euo pipefail
 shopt -s nullglob
 
-# The lib sits at the plugin root, shared with the deploy-plugin skill.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/scripts/lib/common.sh"
 
 problems=0
@@ -26,46 +25,54 @@ root="$(find_root)" || {
 echo "Repo: $root"
 echo
 
-# --- The two halves of the scaffold ------------------------------------------
-market="$root/.claude-plugin/marketplace.json"
-market_name=""
-if [ -f "$market" ]; then
-  market_name="$(json_name "$market")"
-  if [ -n "$market_name" ]; then
-    pass ".claude-plugin/marketplace.json" "ok — marketplace \"$market_name\""
-  else
-    fail ".claude-plugin/marketplace.json" "unreadable or missing a name field"
-  fi
-else
-  fail ".claude-plugin/marketplace.json" "missing"
-fi
-
+# --- plugins/ ----------------------------------------------------------------
 if [ -d "$root/plugins" ]; then
   pass "plugins/" "ok"
 else
   fail "plugins/" "missing"
 fi
 
-# Plugin names listed in the manifest, one per line.
+# --- The marketplaces this repo publishes through ----------------------------
+# Usually just the one at the repo root. A settings file can name others, which
+# is how a plugin reaches a private channel and a public one at the same time.
+targets="$(marketplace_targets "$root")"
+if [ -z "$targets" ]; then
+  fail ".claude-plugin/marketplace.json" "missing, and no marketplaces configured"
+else
+  while IFS="$(printf '\t')" read -r mkt path; do
+    [ -n "${mkt:-}" ] || continue
+    if [ ! -f "$path" ]; then
+      fail "marketplace $mkt" "manifest not found at $path"
+    elif [ -z "$(json_name "$path")" ]; then
+      fail "marketplace $mkt" "unreadable or missing a name field"
+    else
+      pass "marketplace $mkt" "ok"
+    fi
+  done <<< "$targets"
+fi
+
+# Plugin names each readable marketplace lists, as "marketplace<TAB>plugin".
 listed() {
-  [ -n "$market_name" ] || return 0
-  node -e '
-    let raw = "";
-    process.stdin.on("data", chunk => raw += chunk);
-    process.stdin.on("end", () => {
-      let j;
-      try { j = JSON.parse(raw); } catch { return; }
-      for (const p of (j && j.plugins) || []) {
-        if (p && typeof p.name === "string") console.log(p.name);
-      }
-    });
-  ' < "$market" 2>/dev/null
+  while IFS="$(printf '\t')" read -r mkt path; do
+    [ -n "${mkt:-}" ] && [ -f "$path" ] || continue
+    node -e '
+      let raw = "";
+      process.stdin.on("data", chunk => raw += chunk);
+      process.stdin.on("end", () => {
+        let j;
+        try { j = JSON.parse(raw); } catch { return; }
+        for (const p of (j && j.plugins) || []) {
+          if (p && typeof p.name === "string") console.log(process.argv[1] + "\t" + p.name);
+        }
+      });
+    ' "$mkt" < "$path" 2>/dev/null
+  done <<< "$targets"
 }
 entries="$(listed)"
 
 echo
 
-# --- Every plugin directory, joined to the manifest ---------------------------
+# --- Every plugin directory, joined to at least one marketplace ---------------
 found=0
 for dir in "$root"/plugins/*/; do
   name="$(basename "$dir")"
@@ -87,25 +94,31 @@ for dir in "$root"/plugins/*/; do
     continue
   fi
 
-  if printf '%s\n' "$entries" | grep -qx "$name"; then
-    pass "$name" "plugin.json ok · listed in marketplace"
+  in="$(printf '%s\n' "$entries" | awk -F'\t' -v n="$name" '$2 == n { printf "%s ", $1 }')"
+  if [ -n "$in" ]; then
+    pass "$name" "plugin.json ok · listed in ${in% }"
   else
-    fail "$name" "plugin.json ok · NOT LISTED in marketplace.json"
+    fail "$name" "plugin.json ok · NOT LISTED in any marketplace"
   fi
 done
 
-# Only worth saying when plugins/ is there to be empty; a missing plugins/ is
-# already counted above and the same problem twice reads as two.
 if [ -d "$root/plugins" ] && [ "$found" = 0 ]; then
   fail "plugins/" "holds no plugin directories"
 fi
 
-# --- Manifest entries pointing at nothing ------------------------------------
-while read -r name; do
-  [ -n "${name:-}" ] || continue
-  [ -d "$root/plugins/$name" ] && continue
-  fail "$name" "listed in marketplace.json · no plugins/$name directory"
-done <<< "$entries"
+# --- Entries in this repo's own manifest pointing at nothing -------------------
+# Only the repo's own marketplace is checked this way. A shared marketplace
+# legitimately lists plugins living in other repos, so a name with no directory
+# here says nothing about it.
+own="$root/.claude-plugin/marketplace.json"
+if [ -f "$own" ]; then
+  own_name="$(json_name "$own")"
+  while IFS="$(printf '\t')" read -r mkt plugin; do
+    [ -n "${plugin:-}" ] && [ "$mkt" = "$own_name" ] || continue
+    [ -d "$root/plugins/$plugin" ] && continue
+    fail "$plugin" "listed in this repo's marketplace · no plugins/$plugin directory"
+  done <<< "$entries"
+fi
 
 echo
 if [ "$problems" = 0 ]; then

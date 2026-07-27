@@ -46,6 +46,77 @@ json_field() {  # json_field FILE FIELD
 
 json_name() { json_field "$1" name; }
 
+# The marketplaces a release fans out to, as "name<TAB>manifest-path" lines.
+#
+# One plugin can be listed by several marketplaces — a private one for testing
+# and a public one for release, say — and each names its own ref, so each is a
+# separate switch to throw. Targets come from .claude/iron-plugin-dev.local.md:
+#
+#   ---
+#   marketplaces:
+#     - name: iron-plugin-dev
+#       path: .
+#     - name: iron-plugins
+#       path: S:/Vibe Coding/skills
+#   ---
+#
+# `path` is the repo holding .claude-plugin/marketplace.json; "." is this repo.
+# With no settings file the repo's own manifest is the only target, which is the
+# single-marketplace case and needs no configuration.
+marketplace_targets() {  # marketplace_targets ROOT
+  local root="$1" settings="$1/.claude/iron-plugin-dev.local.md"
+
+  if [ ! -f "$settings" ]; then
+    local own="$root/.claude-plugin/marketplace.json"
+    [ -f "$own" ] || return 0
+    printf '%s\t%s\n' "$(json_name "$own")" "$own"
+    return 0
+  fi
+
+  awk -v root="$root" '
+    function trim(s) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+      gsub(/^["'"'"']|["'"'"']$/, "", s)
+      return s
+    }
+    function emit() {
+      if (name == "") return
+      p = (path == "" || path == ".") ? root : path
+      print name "\t" p "/.claude-plugin/marketplace.json"
+      name = ""; path = ""
+    }
+    /^---[[:space:]]*$/ { fm = !fm; next }
+    !fm { next }
+    /^marketplaces:[[:space:]]*$/ { inlist = 1; next }
+    inlist && /^[[:space:]]*-[[:space:]]*name:/ {
+      emit(); sub(/^[[:space:]]*-[[:space:]]*name:/, ""); name = trim($0); next
+    }
+    inlist && /^[[:space:]]+path:/ { sub(/^[[:space:]]*path:/, ""); path = trim($0); next }
+    inlist && /^[^[:space:]#]/ { emit(); inlist = 0 }
+    END { emit() }
+  ' "$settings"
+}
+
+# The name a marketplace entry gives a plugin's ref, empty when unlisted.
+entry_ref() {  # entry_ref MANIFEST PLUGIN
+  node -e '
+    let raw = "";
+    process.stdin.on("data", chunk => raw += chunk);
+    process.stdin.on("end", () => {
+      let j;
+      try { j = JSON.parse(raw); } catch { return; }
+      for (const p of (j && j.plugins) || []) {
+        if (p && p.name === process.argv[1]) {
+          const s = p.source;
+          const kind = typeof s === "string" ? "path" : (s && s.source) || "none";
+          console.log([kind, (s && typeof s === "object" && s.ref) || "", p.version || ""].join("\t"));
+          return;
+        }
+      }
+    });
+  ' "$2" < "$1" 2>/dev/null
+}
+
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) windows=1 ;;
   *)                    windows=0 ;;

@@ -2,6 +2,10 @@
 # and regenerable, never part of a release.
 .claude/skills/
 
+# Marketplace targets for deploy-plugin — names local checkout paths, so it is
+# per-machine by nature.
+.claude/iron-plugin-dev.local.md
+
 node_modules/
 .DS_Store
 Thumbs.db

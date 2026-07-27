@@ -36,14 +36,19 @@ created, the push succeeds, and users still receive the old version or the wrong
 directory. So each step below checks rather than assumes, and since a release is
 outward-facing and hard to walk back, proposes and waits before running anything.
 
-## Step 1: Choose the plugins
+## Step 1: Choose the plugins and the marketplaces
 
 Determine plugins available to be deployed. The user names a set > the session's work > git history. 
 
 Ask when the reading is genuinely open, list what you would otherwise deploy.
 A plugin released by accident is a version users cannot un-receive.
 
-Done when the user has confirmed the list.
+A plugin can be listed by more than one marketplace, each naming its own ref.
+**Fan out to all of them by default** — same version, same tag, every ref moved
+together. Narrow only when the user names a marketplace, which is how a
+pre-release reaches a private channel while the public one stays put.
+
+Done when the user has confirmed both lists.
 
 ## Step 2: Read the current state
 
@@ -51,8 +56,14 @@ Done when the user has confirmed the list.
 bash "${CLAUDE_PLUGIN_ROOT}/skills/deploy-plugin/scripts/release-status.sh"
 ```
 
-Read-only. It prints, per plugin, the version, the tag, and what users currently
-resolve, plus the git remote and working-tree state.
+Read-only. It prints, per plugin, the version and the tag, then one line per
+marketplace showing the ref that marketplace names and what its users get. Pass
+marketplace names to narrow it: `release-status.sh iron-plugins`.
+
+Marketplaces come from `.claude/iron-plugin-dev.local.md` when it exists, and
+otherwise from this repo's own `marketplace.json` — see
+[references/release-sources.md](references/release-sources.md) for the settings
+format.
 
 Resolve anything it flags before going on:
 
@@ -96,8 +107,12 @@ Both ways this fails are silent — `claude plugin validate` passes either one:
 [references/release-sources.md](references/release-sources.md) has every source
 type, what each pins, and why the `path` field disappears.
 
-Done when every plugin being deployed has a `git-subdir` source with a `ref`, or
-the user has accepted that one of them ships on every push.
+Each marketplace carries its own entry, so check every one being deployed to —
+one can be pinned correctly while another is unpinned or points at a repo root.
+
+Done when every plugin being deployed has a `git-subdir` source with a `ref` in
+each targeted marketplace, or the user has accepted that one of them ships on
+every push.
 
 ## Step 4: Choose the version
 
@@ -144,12 +159,16 @@ The order matters: the tag has to exist before the `ref` can name it.
    claude plugin tag ./plugins/<name> --push
    ```
 
-4. **Throw the switch** — move the `ref` in `marketplace.json` to the new tag,
-   for each plugin deployed. Nothing does this for you and nothing warns that it
-   is undone, which is the silent failure the whole skill guards against.
-5. **Commit and push the branch.** Publishing happens here.
-6. **Verify** by re-running `release-status.sh` — every plugin deployed should
-   read `users get: <new version> — ref matches`.
+4. **Throw every switch** — move the `ref` to the new tag in each targeted
+   marketplace, for each plugin deployed. Nothing does this for you and nothing
+   warns that it is undone, which is the silent failure the whole skill guards
+   against. Fanning out multiplies it: one manifest updated and another
+   forgotten leaves half your users on the old version, and both look fine.
+5. **Commit and push each marketplace's branch.** Publishing happens here, once
+   per repo — marketplaces in separate repos each need their own commit and
+   push, and a release is only live where that has happened.
+6. **Verify** by re-running `release-status.sh` across every target — each
+   should read `users get: <new version>, ref matches`.
 
 Then tell the user what an installed user runs to receive it:
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # deploy-plugin/release-status: report what each plugin would release and what
-# users currently get. Read-only; changes nothing.
+# each marketplace's users currently get. Read-only; changes nothing.
 #
-# Three things carry a version and they move independently:
-#   plugin.json version   what installs, and what `claude plugin tag` names the tag after
-#   the git tag           the commit that version lives at
-#   marketplace ref       the tag users actually resolve
-# A release lands only when all three agree, so this prints them side by side.
+#   release-status.sh                 every marketplace target
+#   release-status.sh iron-plugins    only the named ones
+#
+# The version and the tag are shared; only the ref differs per marketplace. That
+# is what lets one marketplace hold a stable release while another carries a
+# pre-release of the same plugin — and it makes each ref a separate switch.
 set -euo pipefail
 shopt -s nullglob
 
@@ -14,8 +15,17 @@ shopt -s nullglob
 
 root="$(find_root)" || die "no plugin repo at $(pwd -P) or any parent"
 [ -d "$root/plugins" ] || die "no plugins/ directory at $root"
-market="$root/.claude-plugin/marketplace.json"
-[ -f "$market" ] || die "no .claude-plugin/marketplace.json at $root"
+
+targets="$(marketplace_targets "$root")"
+[ -n "$targets" ] || die "no marketplace target — add .claude-plugin/marketplace.json, or list marketplaces in .claude/iron-plugin-dev.local.md"
+
+# Limit to the marketplaces named on the command line, when any were.
+if [ "$#" -gt 0 ]; then
+  targets="$(printf '%s\n' "$targets" | awk -F'\t' -v w="$(printf '%s\n' "$@")" '
+    BEGIN { n = split(w, a, "\n"); for (i = 1; i <= n; i++) keep[a[i]] = 1 }
+    keep[$1]')"
+  [ -n "$targets" ] || die "no marketplace target matched: $*"
+fi
 
 echo "Repo: $root"
 
@@ -41,26 +51,7 @@ if git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
 else
   printf '  %-17s %s\n' "git" "NOT A GIT REPO — releases need one"
 fi
-
-# Marketplace entries as "name<TAB>kind<TAB>ref<TAB>entryVersion".
-entries() {
-  node -e '
-    let raw = "";
-    process.stdin.on("data", chunk => raw += chunk);
-    process.stdin.on("end", () => {
-      let j;
-      try { j = JSON.parse(raw); } catch { return; }
-      for (const p of (j && j.plugins) || []) {
-        if (!p || typeof p.name !== "string") continue;
-        const s = p.source;
-        const kind = typeof s === "string" ? "path" : (s && s.source) || "none";
-        const ref  = (s && typeof s === "object" && s.ref) || "";
-        console.log([p.name, kind, ref, p.version || ""].join("\t"));
-      }
-    });
-  ' < "$market" 2>/dev/null
-}
-listing="$(entries)"
+printf '  %-17s %s\n' "marketplaces" "$(printf '%s\n' "$targets" | cut -f1 | tr '\n' ' ')"
 
 for dir in "$root"/plugins/*/; do
   name="$(basename "$dir")"
@@ -69,70 +60,61 @@ for dir in "$root"/plugins/*/; do
 
   version="$(json_field "$manifest" version)"
   [ -n "$version" ] || version="(none)"
-
-  row="$(printf '%s\n' "$listing" | awk -F'\t' -v n="$name" '$1 == n')"
-  kind="$(printf '%s' "$row" | cut -f2)"
-  ref="$(printf '%s' "$row" | cut -f3)"
-  entry_version="$(printf '%s' "$row" | cut -f4)"
+  tag="$name--v$version"
 
   echo
   echo "$name"
   printf '  %-22s %s\n' "plugin.json version" "$version"
 
-  if [ -z "$row" ]; then
-    printf '  %-22s %s\n' "marketplace entry" "MISSING — users cannot install it"
-    continue
-  fi
-
-  # Two independent requirements: the type has to reach plugins/<name>, and a ref
-  # has to pin it. git-subdir is the only type carrying a path, so it is the only
-  # one that installs anything but a repo root; without a ref, any git source
-  # follows its default branch and every push reaches users immediately.
-  reaches=0
-  case "$kind" in
-    git-subdir)
-      reaches=1
-      if [ -n "$ref" ]; then
-        printf '  %-22s %s\n' "source" "git-subdir · pinned to $ref"
-      else
-        printf '  %-22s %s\n' "source" "git-subdir · UNPINNED (tracks default branch)"
-      fi
-      ;;
-    github|url)
-      printf '  %-22s %s\n' "source" "$kind · installs the REPO ROOT, not plugins/$name"
-      printf '  %-22s %s\n' "" "needs git-subdir — adding a path here is silently dropped"
-      ;;
-    npm)  printf '  %-22s %s\n' "source" "npm · released through the registry, not this repo" ;;
-    path) printf '  %-22s %s\n' "source" "path · local, cannot ship to anyone" ;;
-    *)    printf '  %-22s %s\n' "source" "$kind" ;;
-  esac
-
-  [ -z "$entry_version" ] || printf '  %-22s %s\n' "entry version" "$entry_version"
-  if [ -n "$entry_version" ] && [ "$entry_version" != "$version" ]; then
-    printf '  %-22s %s\n' "" "DISAGREES with plugin.json — tagging refuses until it matches or is removed"
-  fi
-
-  # What `claude plugin tag` would name, and whether users would reach it.
-  tag="$name--v$version"
   if [ "$git_ok" = 1 ]; then
     if git -C "$root" rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
-      tag_state="exists"
+      printf '  %-22s %s (exists)\n' "release tag" "$tag"
     else
-      tag_state="not created yet"
+      printf '  %-22s %s (not created yet)\n' "release tag" "$tag"
     fi
-    printf '  %-22s %s (%s)\n' "release tag" "$tag" "$tag_state"
   fi
 
-  # A matching ref only means the right version when the source type can reach
-  # this plugin at all; saying "users get 1.2.0" off a repo-root source would be
-  # the exact wrong reassurance.
-  if [ -n "$ref" ] && [ "$reaches" = 1 ]; then
-    if [ "$ref" = "$tag" ]; then
-      printf '  %-22s %s\n' "users get" "$version — ref matches"
-    else
-      printf '  %-22s %s\n' "users get" "$ref — STALE, plugin.json is $version"
+  # One line per marketplace. The ref each names decides what its own users
+  # receive, independently of every other marketplace listing this plugin.
+  while IFS="$(printf '\t')" read -r mkt path; do
+    [ -n "${mkt:-}" ] || continue
+
+    if [ ! -f "$path" ]; then
+      printf '  %-22s %s\n' "$mkt" "manifest not found at $path"
+      continue
     fi
-  elif [ -n "$ref" ]; then
-    printf '  %-22s %s\n' "users get" "the repo root at $ref — not this plugin"
-  fi
+
+    row="$(entry_ref "$path" "$name")"
+    if [ -z "$row" ]; then
+      printf '  %-22s %s\n' "$mkt" "does not list this plugin"
+      continue
+    fi
+
+    kind="$(printf '%s' "$row" | cut -f1)"
+    ref="$(printf '%s' "$row" | cut -f2)"
+    entry_version="$(printf '%s' "$row" | cut -f3)"
+
+    case "$kind" in
+      git-subdir)
+        if [ -z "$ref" ]; then
+          printf '  %-22s %s\n' "$mkt" "UNPINNED (tracks default branch)"
+        elif [ "$ref" = "$tag" ]; then
+          printf '  %-22s %s\n' "$mkt" "$ref — users get $version, ref matches"
+        else
+          printf '  %-22s %s\n' "$mkt" "$ref — STALE, plugin.json is $version"
+        fi
+        ;;
+      github|url)
+        printf '  %-22s %s\n' "$mkt" "$kind · installs the REPO ROOT, not plugins/$name"
+        printf '  %-22s %s\n' "" "needs git-subdir — adding a path here is silently dropped"
+        ;;
+      npm)  printf '  %-22s %s\n' "$mkt" "npm · released through the registry, not this repo" ;;
+      path) printf '  %-22s %s\n' "$mkt" "path · local, cannot ship to anyone" ;;
+      *)    printf '  %-22s %s\n' "$mkt" "$kind" ;;
+    esac
+
+    if [ -n "$entry_version" ] && [ "$entry_version" != "$version" ]; then
+      printf '  %-22s %s\n' "" "entry version $entry_version disagrees — tagging refuses until it matches"
+    fi
+  done <<< "$targets"
 done
