@@ -11,7 +11,7 @@
       "name": "local-plugin-dev",
       "source": {
         "source": "git-subdir",
-        "url": "twmurphy/iron-plugin-dev",
+        "url": "https://github.com/twmurphy/iron-plugin-dev.git",
         "path": "plugins/local-plugin-dev",
         "ref": "local-plugin-dev--v0.1.0"
       },
