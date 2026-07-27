@@ -13,7 +13,7 @@
         "source": "git-subdir",
         "url": "https://github.com/twmurphy/iron-plugin-dev.git",
         "path": "plugins/iron-plugin-dev",
-        "ref": "iron-plugin-dev--v0.2.0"
+        "ref": "iron-plugin-dev--v0.2.1"
       },
       "description": "Develop and release Claude Code plugins: verify a repo's scaffold, simplify testing plugins locally, and cut controlled releases."
     }
