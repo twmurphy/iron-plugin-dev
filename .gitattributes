@@ -1,0 +1,2 @@
+# Skill scripts run under bash; CRLF breaks the shebang and every line ending.
+*.sh text eol=lf

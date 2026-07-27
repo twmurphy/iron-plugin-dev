@@ -1,0 +1,21 @@
+{
+  "name": "iron-plugin-dev",
+  "owner": {
+    "name": "Tom Murphy"
+  },
+  "metadata": {
+    "description": "Utilities for developing Claude Code plugins."
+  },
+  "plugins": [
+    {
+      "name": "local-plugin-dev",
+      "source": {
+        "source": "git-subdir",
+        "url": "twmurphy/iron-plugin-dev",
+        "path": "plugins/local-plugin-dev",
+        "ref": "local-plugin-dev--v0.1.0"
+      },
+      "description": "Develop and release Claude Code plugins: verify a repo's scaffold, clear user-scope installs that shadow it, link each plugin into .claude/skills/ as a live view, and cut controlled releases by version, tag, and marketplace ref."
+    }
+  ]
+}
