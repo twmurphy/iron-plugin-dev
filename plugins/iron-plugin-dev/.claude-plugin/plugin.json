@@ -1,7 +1,7 @@
 {
   "name": "iron-plugin-dev",
-  "description": "Develop and release Claude Code plugins: verify a repo's scaffold, clear any install that shadows it, link each plugin into .claude/skills/ as a live view, and cut controlled releases by version, tag, and marketplace ref.",
-  "version": "0.2.0",
+  "description": "Develop and release Claude Code plugins: verify a repo's scaffold, simplify testing plugins locally, and cut controlled releases.",
+  "version": "0.2.1",
   "author": {
     "name": "Tom Murphy"
   },
