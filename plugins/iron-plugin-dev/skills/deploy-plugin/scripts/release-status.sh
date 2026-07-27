@@ -17,7 +17,7 @@ root="$(find_root)" || die "no plugin repo at $(pwd -P) or any parent"
 [ -d "$root/plugins" ] || die "no plugins/ directory at $root"
 
 targets="$(marketplace_targets "$root")"
-[ -n "$targets" ] || die "no marketplace target — add .claude-plugin/marketplace.json, or list marketplaces in .claude/iron-plugin-dev.local.md"
+[ -n "$targets" ] || die "no marketplace — add .claude-plugin/marketplace.json to this repo, or list one by URL in .claude/iron-plugin-dev.md"
 
 # Limit to the marketplaces named on the command line, when any were.
 if [ "$#" -gt 0 ]; then
@@ -51,7 +51,7 @@ if git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
 else
   printf '  %-17s %s\n' "git" "NOT A GIT REPO — releases need one"
 fi
-printf '  %-17s %s\n' "marketplaces" "$(printf '%s\n' "$targets" | cut -f1 | tr '\n' ' ')"
+printf '  %-17s %s\n' "marketplaces" "$(printf '%s\n' "$targets" | cut -d"$(printf '\037')" -f1 | tr '\n' ' ')"
 
 for dir in "$root"/plugins/*/; do
   name="$(basename "$dir")"
@@ -76,21 +76,25 @@ for dir in "$root"/plugins/*/; do
 
   # One line per marketplace. The ref each names decides what its own users
   # receive, independently of every other marketplace listing this plugin.
-  while IFS="$(printf '\037')" read -r mkt path repo; do
+  while IFS="$(printf '\037')" read -r mkt manifest url; do
     [ -n "${mkt:-}" ] || continue
 
-    # Moving a ref means editing a file, so a marketplace with no local clone
-    # can be named but not released to.
-    if [ -z "${path:-}" ]; then
-      printf '  %-22s %s\n' "$mkt" "${repo:-remote} — no local checkout, add a path to release to it"
-      continue
+    # A remote marketplace is read from a clone this plugin keeps itself, so a
+    # URL is all the configuration a release needs.
+    if [ -z "${manifest:-}" ]; then
+      checkout="$(marketplace_checkout "$url")" || {
+        printf '  %-22s %s\n' "$mkt" "$url — could not clone, ref unknown"
+        continue
+      }
+      manifest="$checkout/.claude-plugin/marketplace.json"
     fi
-    if [ ! -f "$path" ]; then
-      printf '  %-22s %s\n' "$mkt" "manifest not found at $path"
+
+    if [ ! -f "$manifest" ]; then
+      printf '  %-22s %s\n' "$mkt" "no marketplace.json in $mkt"
       continue
     fi
 
-    row="$(entry_ref "$path" "$name")"
+    row="$(entry_ref "$manifest" "$name")"
     if [ -z "$row" ]; then
       printf '  %-22s %s\n' "$mkt" "does not list this plugin"
       continue

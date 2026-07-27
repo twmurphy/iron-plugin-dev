@@ -43,33 +43,26 @@ Done when you can state, for every plugin it lists, both the link state and the 
 
 If each one reads `link: linked` with `install: none`, the setup is already correct: confirm that to the user, naming the plugins, and stop here.
 
-## Step 3: Clear any install that shadows the repo
-
-For each plugin the check marked `SHADOWS the link`, tell the user which version the cache is serving, and offer the uninstall at the scope it reports:
-
-```bash
-claude plugin uninstall <name>@<marketplace> --scope <scope>
-```
-
-Uninstalling here does not cost them the plugin elsewhere. An install belongs to the scope it was made in, so the released version stays available in every *other* repo — only this one, where the source lives, drops back to the live link.
-
-That split is the point: elsewhere you want the frozen release, here you want the folder you are editing.
-
-Done when no plugin in `plugins/` has an install, or the user has chosen to keep one and accepts that edits will not take effect until it is gone.
-
-## Step 4: Link the plugins into `.claude/skills/`
-
-For each plugin reading `missing` or `stale`, offer:
+## Step 3: Link the plugins into `.claude/skills/`
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/setup-local/scripts/link.sh"
 ```
 
-Tell the user what it lands: one entry per plugin in `.claude/skills/` pointing at its folder — a junction on Windows, which needs no elevation, and a symlink everywhere else. Links whose plugin is gone are removed, so the set stays 1:1. Real directories are left alone, so any skill hand-written in `.claude/skills/` survives, and a real directory sitting on a plugin's name is reported rather than replaced.
+Tell the user what it lands, **before** running it, because it both adds and takes away:
+
+- **Adds** one entry per plugin in `.claude/skills/` pointing at its folder — a junction on Windows, which needs no elevation, and a symlink everywhere else. Links whose plugin is gone are removed, so the set stays 1:1. Real directories are left alone, so any skill hand-written in `.claude/skills/` survives.
+- **Uninstalls** any install of a plugin that lives in this repo, at whatever scope it was made. An install is a frozen cache copy that wins over the link, so leaving it would make the link pointless — edits would still appear to do nothing.
+
+Then read its output back to the user. Every uninstall it performs prints the plugin, the scope it was removed from, and the command to install it again elsewhere. Repeat that last part: the removal is scoped to **this** repo, and the released plugin is still theirs to install in any other project with
+
+```bash
+claude plugin install <name>@<marketplace> --scope project
+```
 
 A plugin linked becomes available after a restart.
 
-Done when every plugin in `plugins/` reads `linked`.
+Done when every plugin in `plugins/` reads `linked` and the user knows what was uninstalled.
 
 ---
 

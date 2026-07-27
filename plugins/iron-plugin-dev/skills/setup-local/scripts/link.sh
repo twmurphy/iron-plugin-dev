@@ -53,4 +53,34 @@ for entry in "$skills"/*; do
   fi
 done
 
-echo "Done: $linked linked, $pruned pruned."
+# An installed copy of a plugin that also lives here is a frozen snapshot in the
+# plugin cache, and it wins over the link just made — so linking without
+# removing it changes nothing the user can see. Uninstall, and say so loudly:
+# this is the one step that takes something away, and the same plugin may be
+# wanted as a normal install in other projects.
+removed=0
+installs="$(shadowing_installs "$root")"
+if [ -n "$installs" ]; then
+  while IFS="$(printf '\t')" read -r pname pid pscope pproject; do
+    [ -n "${pname:-}" ] || continue
+    [ -f "$plugins/$pname/.claude-plugin/plugin.json" ] || continue
+    if claude plugin uninstall "$pid" --scope "$pscope" -y >/dev/null 2>&1; then
+      echo
+      echo "  UNINSTALLED $pid (was $pscope scope)"
+      echo "    It shadowed the link: an install is a frozen copy, so edits here"
+      echo "    would not have taken effect while it was present."
+      echo "    This affects THIS repo only. To use the released plugin in another"
+      echo "    project, install it there:"
+      echo "      claude plugin install $pid --scope project"
+      removed=$((removed + 1))
+    else
+      echo
+      echo "  COULD NOT UNINSTALL $pid ($pscope scope) — it will shadow the link."
+      echo "    Remove it by hand:  claude plugin uninstall $pid --scope $pscope"
+    fi
+  done <<< "$installs"
+fi
+
+echo
+echo "Done: $linked linked, $pruned pruned, $removed uninstalled."
+[ "$removed" = 0 ] || echo "Restart Claude Code to pick up the linked copies."

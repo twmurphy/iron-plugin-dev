@@ -13,29 +13,7 @@ root="$(find_root)" || die "no plugin repo at $(pwd -P) or any parent — run ve
 plugins="$root/plugins"
 skills="$root/.claude/skills"
 
-# `claude plugin list --json` is the authority on what is installed and at which
-# scope. node does the parsing because jq is not a given, while node ships with
-# Claude Code itself. Emits one "name<TAB>id<TAB>scope" line per install.
-claude_installs() {
-  command -v claude >/dev/null 2>&1 || return 0
-  command -v node   >/dev/null 2>&1 || return 0
-  claude plugin list --json 2>/dev/null | node -e '
-    let raw = "";
-    process.stdin.on("data", chunk => raw += chunk);
-    process.stdin.on("end", () => {
-      let list;
-      try { list = JSON.parse(raw); } catch { return; }
-      if (!Array.isArray(list)) return;
-      for (const p of list) {
-        if (p && typeof p.id === "string") {
-          console.log([p.id.split("@")[0], p.id, p.scope || "unknown"].join("\t"));
-        }
-      }
-    });
-  ' 2>/dev/null
-}
-
-installs="$(claude_installs)"
+installs="$(shadowing_installs "$root")"
 if [ -z "$installs" ]; then
   note "install scopes unavailable — the claude CLI is not on PATH"
 fi

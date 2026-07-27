@@ -46,48 +46,41 @@ json_field() {  # json_field FILE FIELD
 
 json_name() { json_field "$1" name; }
 
-# The marketplaces a release fans out to, as "name<TAB>manifest-path<TAB>repo"
-# lines. Either of the last two may be empty.
+# The marketplaces this repo publishes through, as "name<US>manifest<US>url"
+# lines, where <US> is the unit separator and exactly one of manifest/url is set.
 #
-# One plugin can be listed by several marketplaces — a private one for testing
-# and a public one for release, say — and each names its own ref, so each is a
-# separate switch to throw. Two files describe them, split by what is durable:
-#
-#   .claude/iron-plugin-dev.md         committed — which marketplaces publish
-#                                      this repo, by `repo:` (owner/name)
-#   .claude/iron-plugin-dev.local.md   gitignored — where your clones of them
-#                                      live, by `path:`
+# Two kinds of target:
+#   local   the repo's own .claude-plugin/marketplace.json — needs no config
+#   remote  a marketplace living in another repo, named by URL in
+#           .claude/iron-plugin-dev.md, which is committed so the list of
+#           destinations travels with the repo
 #
 #   ---
 #   marketplaces:
 #     - name: iron-plugins
-#       repo: twmurphy/iron-plugins
-#       path: S:/Vibe Coding/iron-plugins
+#       url: https://github.com/twmurphy/iron-plugins.git
 #   ---
 #
-# The split matters because a repo that publishes through a marketplace it does
-# not contain still needs to say so — a fresh clone with no local paths should
-# report "not checked locally", never "no marketplace". Entries merge by name,
-# so the committed file can name a marketplace the local one only locates.
-#
-# `path` is the repo holding .claude-plugin/marketplace.json; "." is this repo.
-# With neither file, this repo's own manifest is the only target — the
-# single-marketplace case, needing no configuration.
-_parse_targets() {  # _parse_targets FILE ROOT
-  awk -v root="$2" '
+# Nothing here records a filesystem path. A URL is enough: reading or moving a
+# remote marketplace's ref works from a clone this plugin makes itself, so there
+# is no per-machine state to configure, lose, or leave out of git.
+marketplace_targets() {  # marketplace_targets ROOT
+  local root="$1"
+  local own="$root/.claude-plugin/marketplace.json"
+  local cfg="$root/.claude/iron-plugin-dev.md"
+
+  [ -f "$own" ] && printf '%s\037%s\037\n' "$(json_name "$own")" "$own"
+  [ -f "$cfg" ] || return 0
+
+  awk '
     function trim(s) {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
       gsub(/^["'"'"']|["'"'"']$/, "", s)
       return s
     }
     function emit() {
-      if (name == "") return
-      p = (path == ".") ? root : path
-      # Unit separator, not tab: a field here is often empty, and tab is an IFS
-      # whitespace character, so bash read would collapse the run and shift
-      # every later field left.
-      print name "\037" (p == "" ? "" : p "/.claude-plugin/marketplace.json") "\037" repo
-      name = ""; path = ""; repo = ""
+      if (name != "" && url != "") print name "\037" "\037" url
+      name = ""; url = ""
     }
     /^---[[:space:]]*$/ { fm = !fm; next }
     !fm { next }
@@ -95,42 +88,85 @@ _parse_targets() {  # _parse_targets FILE ROOT
     inlist && /^[[:space:]]*-[[:space:]]*name:/ {
       emit(); sub(/^[[:space:]]*-[[:space:]]*name:/, ""); name = trim($0); next
     }
-    inlist && /^[[:space:]]+path:/ { sub(/^[[:space:]]*path:/, ""); path = trim($0); next }
-    inlist && /^[[:space:]]+repo:/ { sub(/^[[:space:]]*repo:/, ""); repo = trim($0); next }
+    inlist && /^[[:space:]]+url:/ { sub(/^[[:space:]]*url:/, ""); url = trim($0); next }
     inlist && /^[^[:space:]#]/ { emit(); inlist = 0 }
     END { emit() }
-  ' "$1"
+  ' "$cfg"
 }
 
-marketplace_targets() {  # marketplace_targets ROOT
-  local root="$1" rows=""
-  local shared="$root/.claude/iron-plugin-dev.md"
-  local local_file="$root/.claude/iron-plugin-dev.local.md"
+# A working copy of a remote marketplace, cloned once and refreshed after.
+# Echoes the checkout path. Reading a ref and moving one both need the repo on
+# disk, and keeping the clone out of the user's tree means no stray directories
+# and nothing to configure.
+marketplace_checkout() {  # marketplace_checkout URL
+  local url="$1"
+  local slug cache
+  slug="$(printf '%s' "$url" | tr -c 'A-Za-z0-9._-' '_')"
+  cache="${HOME}/.iron-plugin-dev/marketplaces/$slug"
 
-  # $'\n' rather than "$(printf '\n')" — command substitution strips trailing
-  # newlines, which would run the two files' rows together.
-  [ -f "$shared" ]     && rows+="$(_parse_targets "$shared" "$root")"$'\n'
-  [ -f "$local_file" ] && rows+="$(_parse_targets "$local_file" "$root")"$'\n'
-
-  if [ -z "${rows//[[:space:]]/}" ]; then
-    local own="$root/.claude-plugin/marketplace.json"
-    [ -f "$own" ] || return 0
-    printf '%s\037%s\037\n' "$(json_name "$own")" "$own"
-    return 0
+  if [ -d "$cache/.git" ]; then
+    git -C "$cache" fetch --quiet --depth 1 origin HEAD 2>/dev/null || return 1
+    git -C "$cache" reset --quiet --hard FETCH_HEAD 2>/dev/null || return 1
+  else
+    mkdir -p "$(dirname "$cache")"
+    git clone --quiet --depth 1 "$url" "$cache" 2>/dev/null || return 1
   fi
+  echo "$cache"
+}
 
-  # Merge by name, first-seen order. A later file fills in fields the earlier
-  # one left blank, which is how the local file supplies paths for marketplaces
-  # the committed file names.
-  printf '%s\n' "$rows" | awk -F'\037' '
-    $1 == "" { next }
-    {
-      if (!($1 in seen)) { seen[$1] = 1; order[++n] = $1 }
-      if ($2 != "") path[$1] = $2
-      if ($3 != "") repo[$1] = $3
-    }
-    END { for (i = 1; i <= n; i++) { k = order[i]; print k "\037" path[k] "\037" repo[k] } }
-  '
+# One comparable spelling for a path: forward slashes, lowercased, no trailing
+# slash. Claude Code reports Windows paths ("S:\dir"); the shell has POSIX ones
+# ("/s/dir"). cygpath bridges them so the two can be compared at all.
+norm_path() {
+  local p="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    p="$(cygpath -w "$p" 2>/dev/null || printf '%s' "$p")"
+  fi
+  printf '%s' "$p" | tr 'A-Z\\' 'a-z/' | sed 's|/*$||'
+}
+
+# Plugins Claude Code has installed, as "name<TAB>id<TAB>scope<TAB>project".
+# `claude plugin list --json` is the authority; node parses because jq is not a
+# given while node ships with Claude Code itself.
+#
+# `claude plugin list` returns project-scope installs for every project, not
+# just this one, so the project field decides which are ours — see
+# shadowing_installs.
+claude_installs() {
+  command -v claude >/dev/null 2>&1 || return 0
+  command -v node   >/dev/null 2>&1 || return 0
+  claude plugin list --json 2>/dev/null | node -e '
+    let raw = "";
+    process.stdin.on("data", chunk => raw += chunk);
+    process.stdin.on("end", () => {
+      let list;
+      try { list = JSON.parse(raw); } catch { return; }
+      if (!Array.isArray(list)) return;
+      for (const p of list) {
+        if (p && typeof p.id === "string") {
+          console.log([p.id.split("@")[0], p.id, p.scope || "unknown", p.projectPath || ""].join("\t"));
+        }
+      }
+    });
+  ' 2>/dev/null
+}
+
+# Installs that actually shadow this repo, same fields as claude_installs.
+#
+# An install shadows only when its copy would load here: a user-scope install
+# applies everywhere, while a project- or local-scope one belongs to the project
+# it was made in and is no business of ours when that project is elsewhere.
+shadowing_installs() {  # shadowing_installs ROOT
+  local root_n
+  root_n="$(norm_path "$1")"
+  claude_installs | while IFS="$(printf '\t')" read -r name id scope project; do
+    [ -n "${name:-}" ] || continue
+    case "${scope:-}" in
+      user) ;;
+      *) [ -n "${project:-}" ] && [ "$(norm_path "$project")" = "$root_n" ] || continue ;;
+    esac
+    printf '%s\t%s\t%s\t%s\n' "$name" "$id" "$scope" "$project"
+  done
 }
 
 # The name a marketplace entry gives a plugin's ref, empty when unlisted.

@@ -60,10 +60,15 @@ Read-only. It prints, per plugin, the version and the tag, then one line per
 marketplace showing the ref that marketplace names and what its users get. Pass
 marketplace names to narrow it: `release-status.sh iron-plugins`.
 
-Marketplaces come from `.claude/iron-plugin-dev.local.md` when it exists, and
-otherwise from this repo's own `marketplace.json` — see
-[references/release-sources.md](references/release-sources.md) for the settings
-format.
+Marketplaces are this repo's own `marketplace.json` when it has one, plus any
+listed by URL in the committed `.claude/iron-plugin-dev.md`. Remote ones are
+read from a clone kept under `~/.iron-plugin-dev/marketplaces/`, so a URL is the
+only configuration — see
+[references/release-sources.md](references/release-sources.md).
+
+When a plugin publishes somewhere not yet listed, ask the user for the
+marketplace URL and add it to that file. It is committed, so the repo carries
+its own list of destinations.
 
 Resolve anything it flags before going on:
 

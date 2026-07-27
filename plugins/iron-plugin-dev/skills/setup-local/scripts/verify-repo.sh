@@ -40,31 +40,27 @@ remote_only=0
 if [ -z "$targets" ]; then
   fail ".claude-plugin/marketplace.json" "missing, and no marketplaces configured"
 else
-  while IFS="$(printf '\037')" read -r mkt path repo; do
+  while IFS="$(printf '')" read -r mkt manifest url; do
     [ -n "${mkt:-}" ] || continue
-    if [ -n "${path:-}" ] && [ -f "$path" ]; then
-      if [ -z "$(json_name "$path")" ]; then
+    if [ -n "${manifest:-}" ]; then
+      if [ -z "$(json_name "$manifest")" ]; then
         fail "marketplace $mkt" "unreadable or missing a name field"
       else
-        pass "marketplace $mkt" "ok"
+        pass "marketplace $mkt" "in this repo"
       fi
-    elif [ -n "${path:-}" ]; then
-      fail "marketplace $mkt" "manifest not found at $path"
-    elif [ -n "${repo:-}" ]; then
-      # Named but not cloned here. The repo says where it publishes; checking
-      # the join would need that clone, so say so rather than invent a finding.
-      pass "marketplace $mkt" "$repo — remote, not checked locally"
-      remote_only=1
     else
-      fail "marketplace $mkt" "neither path nor repo configured"
+      # Remote. Checking the join would mean cloning, which a scaffold check has
+      # no business doing — deploy-plugin reads remote refs, this does not.
+      pass "marketplace $mkt" "$url — remote, not checked here"
+      remote_only=1
     fi
   done <<< "$targets"
 fi
 
-# Plugin names each readable marketplace lists, as "marketplace<TAB>plugin".
+# Plugin names each in-repo marketplace lists, as "marketplace<TAB>plugin".
 listed() {
-  while IFS="$(printf '\037')" read -r mkt path repo; do
-    [ -n "${mkt:-}" ] && [ -n "${path:-}" ] && [ -f "$path" ] || continue
+  while IFS="$(printf '')" read -r mkt manifest url; do
+    [ -n "${mkt:-}" ] && [ -n "${manifest:-}" ] && [ -f "$manifest" ] || continue
     node -e '
       let raw = "";
       process.stdin.on("data", chunk => raw += chunk);
@@ -72,10 +68,10 @@ listed() {
         let j;
         try { j = JSON.parse(raw); } catch { return; }
         for (const p of (j && j.plugins) || []) {
-          if (p && typeof p.name === "string") console.log(process.argv[1] + "\t" + p.name);
+          if (p && typeof p.name === "string") console.log(process.argv[1] + "	" + p.name);
         }
       });
-    ' "$mkt" < "$path" 2>/dev/null
+    ' "$mkt" < "$manifest" 2>/dev/null
   done <<< "$targets"
 }
 entries="$(listed)"

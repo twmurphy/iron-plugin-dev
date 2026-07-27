@@ -66,46 +66,35 @@ its own `ref`. That is what separates channels: a private marketplace can carry
 a pre-release while a public one stays on the last stable tag, from one repo and
 one set of tags.
 
-Targets come from two files, split by what is durable:
+A repo publishes through two kinds of marketplace:
 
-**`.claude/<plugin>.md` — committed.** Which marketplaces publish this repo.
-This is a fact about the project, so it belongs in the repo:
-
-```markdown
----
-marketplaces:
-  - name: iron-plugins
-    repo: twmurphy/iron-plugins
----
-```
-
-**`.claude/<plugin>.local.md` — gitignored.** Where your clones of them live.
-That is a fact about your machine:
+- **its own** `.claude-plugin/marketplace.json`, if it has one — no
+  configuration, it is simply there
+- **remote** ones living in other repos, listed by URL in
+  `.claude/<plugin>.md`, which is **committed**, because where a repo publishes
+  is a fact about the project and belongs in git:
 
 ```markdown
 ---
 marketplaces:
   - name: iron-plugins
-    path: S:/Vibe Coding/iron-plugins
+    url: https://github.com/twmurphy/iron-plugins.git
 ---
 ```
 
-Entries merge by name, so the committed file can name a marketplace the local
-file only locates. `path` points at the repo holding
-`.claude-plugin/marketplace.json`; `.` is this repo. With neither file, this
-repo's own manifest is the only target, so a single-marketplace repo needs no
-configuration at all.
-
-The split exists so a repo that publishes through a marketplace it does not
-contain can still say so. Without it, a fresh clone has no targets and the
-scaffold check reports a missing marketplace — a finding about the machine
-dressed up as a finding about the repo. With `repo:` committed, an uncloned
-marketplace reports *"remote, not checked locally"*, and only a release needs a
-`path`, since moving a ref means editing a file.
+A URL is the whole configuration. Reading a remote marketplace's ref, or moving
+it, works from a clone this plugin makes and keeps under
+`~/.iron-plugin-dev/marketplaces/`. Nothing records a filesystem path, so there
+is no per-machine state to set up, lose, or leave out of git — a fresh clone of
+the repo can release from it immediately.
 
 This also removes the assumption that a plugin repo carries a marketplace at
 all: name one living in another repo and the plugin repo needs no manifest of
 its own.
+
+Scaffold checks never fetch. `verify-repo.sh` reports a remote marketplace as
+*"remote, not checked here"* and verifies the join only for a marketplace in the
+repo; reading remote refs is `release-status.sh`'s job.
 
 **One plugin name loads once.** Claude Code deduplicates by plugin *name*, not
 by `plugin@marketplace`, so installing the same plugin from two marketplaces
