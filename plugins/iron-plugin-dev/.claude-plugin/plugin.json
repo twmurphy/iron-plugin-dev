@@ -5,5 +5,8 @@
   "author": {
     "name": "Tom Murphy"
   },
+  "homepage": "https://github.com/twmurphy/iron-plugin-dev",
+  "repository": "https://github.com/twmurphy/iron-plugin-dev",
+  "license": "MIT",
   "keywords": ["plugin-development", "tooling", "local-development"]
 }
