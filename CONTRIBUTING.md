@@ -65,18 +65,6 @@ with LF endings so the shebang survives on Windows.
 - **Scripts that report** are read-only; anything that changes state is a
   separate script the skill offers rather than runs.
 
-## Releasing
-
-```
-/iron-plugin-dev:deploy-plugin
-```
-
-Releases are deliberate: a version, a git tag, and the `ref` in
-`marketplace.json` all have to agree, and moving the `ref` is what publishes.
-The skill walks the whole sequence and refuses to skip the step nothing warns
-about. [release-sources.md](plugins/iron-plugin-dev/skills/deploy-plugin/references/release-sources.md)
-explains what users actually receive.
-
 ## License
 
 By contributing you agree that your contributions are licensed under the
