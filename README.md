@@ -77,11 +77,14 @@ see [scaffold.md](plugins/iron-plugin-dev/skills/setup-local/references/scaffold
 
 ## Working on this repo
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). In short, link rather than install:
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: install as above, then run
 
-```bash
-bash plugins/iron-plugin-dev/skills/setup-local/scripts/link.sh
 ```
+/iron-plugin-dev:setup-local
+```
+
+which trades that install for a live view of your working copy, so your edits
+are what Claude Code loads.
 
 ## License
 

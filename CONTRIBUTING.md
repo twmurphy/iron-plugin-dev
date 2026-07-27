@@ -7,39 +7,49 @@ describes the layout in full.
 
 ## Getting set up
 
-Clone the repo, then link each plugin into `.claude/skills/` so Claude Code
-loads the live folders instead of a cached copy:
+The plugin provides the tooling you use to work on it, so install it first:
 
 ```bash
-bash plugins/iron-plugin-dev/skills/setup-local/scripts/link.sh
+claude plugin marketplace add twmurphy/iron-plugin-dev
 ```
-
-Skills become available after restarting Claude Code.
-
-Avoid installing a plugin from this repo while working on it. An install is a
-frozen snapshot in the plugin cache, so your edits will appear to do nothing.
-The `setup-local` skill checks for exactly that:
 
 ```bash
-bash plugins/iron-plugin-dev/skills/setup-local/scripts/check.sh
+claude plugin install iron-plugin-dev@iron-plugin-dev --scope project
 ```
+
+Restart Claude Code, then run:
+
+```
+/iron-plugin-dev:setup-local
+```
+
+That checks the scaffold and swaps the install you just made for a live view of
+your working copy — a junction on Windows, a symlink elsewhere — so your edits
+take effect instead of being served from a frozen cache copy. Restart once more
+and you are editing what Claude Code loads.
+
+The install is a bootstrap, not the end state. `setup-local` will tell you it
+shadows the repo and offer to remove it; let it.
+
+If your edits ever seem to do nothing, run `/iron-plugin-dev:setup-local` again
+— a shadowing install is the usual cause.
 
 ## Before opening a pull request
 
-Confirm the scaffold and both manifests still hold:
-
-```bash
-bash plugins/iron-plugin-dev/skills/setup-local/scripts/verify-repo.sh
 ```
+/iron-plugin-dev:setup-local
+```
+
+Its first step confirms the scaffold: that `.claude-plugin/marketplace.json` and
+`plugins/` both exist, and that they agree in both directions. A directory under
+`plugins/` that no marketplace entry names installs nothing while passing
+validation, which is where a new plugin usually goes wrong.
+
+Then check the manifests themselves:
 
 ```bash
 claude plugin validate . --strict
 ```
-
-`claude plugin validate` reads each manifest alone; `verify-repo.sh` checks the
-join between them, which is where a new plugin usually goes wrong — a directory
-under `plugins/` that no `marketplace.json` entry names installs nothing while
-passing validation.
 
 Shell scripts should pass `bash -n`, and `.gitattributes` keeps them checked out
 with LF endings so the shebang survives on Windows.
@@ -57,10 +67,14 @@ with LF endings so the shebang survives on Windows.
 
 ## Releasing
 
+```
+/iron-plugin-dev:deploy-plugin
+```
+
 Releases are deliberate: a version, a git tag, and the `ref` in
 `marketplace.json` all have to agree, and moving the `ref` is what publishes.
-The `deploy-plugin` skill walks the whole sequence, and
-[release-sources.md](plugins/iron-plugin-dev/skills/deploy-plugin/references/release-sources.md)
+The skill walks the whole sequence and refuses to skip the step nothing warns
+about. [release-sources.md](plugins/iron-plugin-dev/skills/deploy-plugin/references/release-sources.md)
 explains what users actually receive.
 
 ## License
