@@ -15,7 +15,7 @@
         "path": "plugins/iron-plugin-dev",
         "ref": "iron-plugin-dev--v0.1.2"
       },
-      "description": "Develop and release Claude Code plugins: verify a repo's scaffold, clear user-scope installs that shadow it, link each plugin into .claude/skills/ as a live view, and cut controlled releases by version, tag, and marketplace ref."
+      "description": "Develop and release Claude Code plugins: verify a repo's scaffold, clear any install that shadows it, link each plugin into .claude/skills/ as a live view, and cut controlled releases by version, tag, and marketplace ref."
     }
   ]
 }
