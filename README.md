@@ -14,7 +14,7 @@ plugin-utils/                            # the marketplace repo (name: iron-plug
         │   └── plugin.json
         ├── scripts/lib/common.sh            # shared: repo discovery, JSON, links
         └── skills/
-            ├── local-plugin-setup/
+            ├── setup-local/
             │   ├── SKILL.md
             │   ├── references/scaffold.md   # how a plugin repo is laid out
             │   └── scripts/
@@ -30,13 +30,13 @@ plugin-utils/                            # the marketplace repo (name: iron-plug
 ```
 
 The repo and the plugin are two levels, and a one-plugin repo still keeps both —
-see [scaffold.md](plugins/iron-plugin-dev/skills/local-plugin-setup/references/scaffold.md).
+see [scaffold.md](plugins/iron-plugin-dev/skills/setup-local/references/scaffold.md).
 
 ## Plugins
 
 | Name               | Skills                            | Purpose                                                    |
 | ------------------ | --------------------------------- | ---------------------------------------------------------- |
-| `iron-plugin-dev` | `local-plugin-setup`, `deploy-plugin` | Verify a plugin repo's scaffold, clear user-scope installs that shadow it, link each plugin into `.claude/skills/` as a live view — then release under control when it is ready |
+| `iron-plugin-dev` | `setup-local`, `deploy-plugin` | Verify a plugin repo's scaffold, clear installs that shadow it, link each plugin into `.claude/skills/` as a live view — then release under control when it is ready |
 
 ## Install locally
 
@@ -59,7 +59,7 @@ claude plugin validate .
 ```
 
 ```bash
-bash plugins/iron-plugin-dev/skills/local-plugin-setup/scripts/verify-repo.sh
+bash plugins/iron-plugin-dev/skills/setup-local/scripts/verify-repo.sh
 ```
 
 `claude plugin validate` reads each manifest in isolation; `verify-repo.sh`

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# local-plugin-setup/check: report how every plugin under plugins/ is wired up —
+# setup-local/check: report how every plugin under plugins/ is wired up —
 # whether .claude/skills/ links it, and whether Claude Code has it installed and
 # at which scope. Read-only; changes nothing.
 set -euo pipefail
@@ -43,7 +43,7 @@ fi
 echo "Repo: $root"
 echo
 
-total=0; linked=0; user_scope=0; stale=0
+total=0; linked=0; shadowed=0; stale=0
 for dir in "$plugins"/*/; do
   [ -f "${dir}.claude-plugin/plugin.json" ] || continue
   name="$(basename "$dir")"
@@ -58,11 +58,19 @@ for dir in "$plugins"/*/; do
     link_state="missing"
   fi
 
+  # The name matched a directory under plugins/, so any install at all is a
+  # cached snapshot of the very folder being edited here. Scope decides where it
+  # was declared, not whether it shadows — a project-scope install serves the
+  # same frozen copy a user-scope one does.
   where="$(printf '%s\n' "$installs" | awk -F'\t' -v n="$name" \
              '$1 == n { printf "%s (%s) ", $3, $2 }')"
   where="${where% }"
-  [ -n "$where" ] || where="none"
-  case "$where" in *user\ \(*) user_scope=$((user_scope + 1)) ;; esac
+  if [ -n "$where" ]; then
+    where="$where — SHADOWS the link"
+    shadowed=$((shadowed + 1))
+  else
+    where="none"
+  fi
 
   printf '  %-24s link: %-8s install: %s\n' "$name" "$link_state" "$where"
 done
@@ -80,4 +88,4 @@ done
 
 echo
 if [ "$total" = 1 ]; then noun="plugin"; else noun="plugins"; fi
-echo "Summary: $total $noun, $linked linked, $user_scope at user scope, $stale stale."
+echo "Summary: $total $noun, $linked linked, $shadowed shadowed by an install, $stale stale."

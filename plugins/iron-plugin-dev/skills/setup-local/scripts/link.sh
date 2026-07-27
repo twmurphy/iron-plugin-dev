@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# local-plugin-setup/link: give every plugin under plugins/ one entry in
+# setup-local/link: give every plugin under plugins/ one entry in
 # .claude/skills/ pointing at its folder, and drop entries whose plugin is gone.
 #
 # Windows gets a junction (no elevation needed); everything else gets a symlink.

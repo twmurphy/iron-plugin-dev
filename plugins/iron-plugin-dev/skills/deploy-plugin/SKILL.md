@@ -61,7 +61,7 @@ Resolve anything it flags before going on:
 - **`remote NONE`** — there is nowhere to push. Ask for the URL and offer
   `git remote add origin <url>`.
 - **`marketplace entry MISSING`** — the plugin cannot install at all. This is
-  scaffold work; the `local-plugin-setup` skill's `verify-repo.sh` covers it.
+  scaffold work; the `setup-local` skill's `verify-repo.sh` covers it.
 - **`entry version DISAGREES`** — the entry carries an optional `version` that
   no longer matches `plugin.json`, and tagging refuses until it does. Offer both
   fixes: update it, or remove it so `plugin.json` is the only place a version

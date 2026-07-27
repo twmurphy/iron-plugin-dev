@@ -1,6 +1,6 @@
-# Shared by check.sh and link.sh — sourced, never run directly.
+# Shared by every skill script in this plugin — sourced, never run directly.
 #
-# Holds the two things both scripts need and neither should restate: where the
+# Holds the things those scripts need and none should restate: where the
 # repo is, and how to make/inspect/remove a link on this platform.
 
 die()  { echo "iron-plugin-dev: $*" >&2; exit 1; }

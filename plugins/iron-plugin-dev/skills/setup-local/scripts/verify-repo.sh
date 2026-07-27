@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# local-plugin-setup/verify-repo: confirm the repo is a plugin repo in good order —
+# setup-local/verify-repo: confirm the repo is a plugin repo in good order —
 # a marketplace manifest, a plugins/ directory, and every plugin joined to the
 # manifest in both directions. Read-only; changes nothing.
 #
