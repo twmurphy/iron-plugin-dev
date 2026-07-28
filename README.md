@@ -1,7 +1,9 @@
 # iron-plugin-dev
 
-A Claude Code marketplace of plugins for building and releasing Claude Code
-plugins.
+A Claude Code plugin for building and releasing Claude Code plugins.
+
+Published through the [iron-plugins](https://github.com/twmurphy/iron-plugins)
+marketplace.
 
 ## What's in it
 
@@ -16,11 +18,11 @@ name with `/iron-plugin-dev:setup-local` and `/iron-plugin-dev:deploy-plugin`.
 ## Install
 
 ```bash
-claude plugin marketplace add twmurphy/iron-plugin-dev
+claude plugin marketplace add twmurphy/iron-plugins
 ```
 
 ```bash
-claude plugin install iron-plugin-dev@iron-plugin-dev --scope project
+claude plugin install iron-plugin-dev@iron-plugins --scope project
 ```
 
 Plugins become available after restarting Claude Code.
@@ -49,9 +51,9 @@ for you, and nothing warns when it is undone.
 ## Layout
 
 ```
-iron-plugin-dev/                          # the marketplace repo
-├── .claude-plugin/
-│   └── marketplace.json                  # lists every plugin in plugins/
+iron-plugin-dev/                          # a plugin repo
+├── .claude/
+│   └── iron-plugin-dev.md                # marketplaces this repo publishes through
 └── plugins/
     └── iron-plugin-dev/                  # a plugin
         ├── .claude-plugin/
@@ -72,8 +74,10 @@ iron-plugin-dev/                          # the marketplace repo
                     └── release-status.sh # read-only: version vs tag vs ref
 ```
 
-The repo and the plugin are two levels, and a one-plugin repo still keeps both —
-see [scaffold.md](plugins/iron-plugin-dev/skills/setup-local/references/scaffold.md).
+This repo holds no marketplace manifest of its own. It publishes through
+`iron-plugins`, which lives in its own repo and pins each plugin to a released
+tag — see [scaffold.md](plugins/iron-plugin-dev/skills/setup-local/references/scaffold.md)
+for the layout, and the plugin directory is the level that matters here.
 
 ## Working on this repo
 

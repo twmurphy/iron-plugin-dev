@@ -1,7 +1,9 @@
 # Contributing
 
-Thanks for taking an interest. This repo is a Claude Code plugin marketplace:
-the repo is the marketplace, and each directory under `plugins/` is a plugin.
+Thanks for taking an interest. This repo holds plugins; each directory under
+`plugins/` is one. It publishes through the
+[iron-plugins](https://github.com/twmurphy/iron-plugins) marketplace, which
+lives in its own repo and pins each plugin to a released tag.
 [scaffold.md](plugins/iron-plugin-dev/skills/setup-local/references/scaffold.md)
 describes the layout in full.
 
@@ -10,11 +12,11 @@ describes the layout in full.
 The plugin provides the tooling you use to work on it, so install it first:
 
 ```bash
-claude plugin marketplace add twmurphy/iron-plugin-dev
+claude plugin marketplace add twmurphy/iron-plugins
 ```
 
 ```bash
-claude plugin install iron-plugin-dev@iron-plugin-dev --scope project
+claude plugin install iron-plugin-dev@iron-plugins --scope project
 ```
 
 Restart Claude Code, then run:
